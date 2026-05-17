@@ -1,0 +1,62 @@
+[project]
+name = "cheap-search"
+authors = [{ name = "Qian Zhang", email = "contact@qzsh.email" }]
+version = "2026.5.17"
+description = "Lightweight, agent-facing CLI for provider-specific search (Grok web/X, local Codex)"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.13, <3.14"
+keywords = [
+  "search",
+  "grok",
+  "xai",
+  "codex",
+  "cli",
+  "agent",
+  "ai",
+  "llm",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.13",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+
+dependencies = [
+  "typer>=0.20.0",
+  "xai-sdk>=1.0",
+]
+
+[project.scripts]
+cheap-search = "cheap_search.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cheap_search"]
+
+[dependency-groups]
+dev = [
+  "pre-commit>=4.0",
+  "ruff>=0.14",
+  "pytest>=8.0",
+  "pytest-asyncio>=1.0",
+  "ty>=0.0.33",
+  "nuitka>=4.0.8",
+  "pytest-cov>=7.1.0",
+  "python-dotenv>=1.0",
+]
+
+[tool.pytest.ini_options]
+markers = [
+  "live: hits real external providers (xAI, codex). Skipped automatically when prerequisites are missing.",
+]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+package = true

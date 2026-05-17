@@ -1,0 +1,40 @@
+line-length = 120
+
+[lint.pydocstyle]
+convention = "google"
+
+[format]
+docstring-code-format = true
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+skip-magic-trailing-comma = false
+
+[lint.isort]
+lines-after-imports = 2
+known-first-party = ["cheap_search"]
+section-order = [
+  "future",
+  "standard-library",
+  "third-party",
+  "first-party",
+  "local-folder",
+]
+
+[lint]
+select = [
+  "F",
+  "N",
+  "E",
+  "W",
+  "C901",
+  "UP",
+  "B",
+  "SIM",
+  "ANN",
+  "ASYNC",
+  "C4",
+  "PT",
+  "I",
+]
+ignore = []

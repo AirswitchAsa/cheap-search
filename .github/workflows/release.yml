@@ -1,0 +1,122 @@
+name: Release Binaries
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v2026.5.17). Created if it does not exist."
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  authorize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Restrict to repo owner
+        env:
+          ACTOR: ${{ github.actor }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [ "$ACTOR" != "$OWNER" ]; then
+            echo "::error::Release workflow is restricted to the repo owner ($OWNER); actor was $ACTOR"
+            exit 1
+          fi
+
+  build:
+    needs: authorize
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: cheap-search-darwin-arm64
+            runner: macos-14
+            ext: ""
+          - target: cheap-search-linux-x64
+            runner: ubuntu-22.04
+            ext: ""
+          - target: cheap-search-linux-arm64
+            runner: ubuntu-22.04-arm
+            ext: ""
+          - target: cheap-search-windows-x64
+            runner: windows-latest
+            ext: ".exe"
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.13"
+
+      - name: Sync dependencies
+        run: uv sync --group dev
+
+      - name: Build onefile binary
+        shell: bash
+        env:
+          CHEAP_SEARCH_NUITKA_MODE: onefile
+          CHEAP_SEARCH_BINARY_OUT_DIR: dist-bin
+          CHEAP_SEARCH_BINARY_NAME: cheap-search
+        run: scripts/build-binary.sh
+
+      - name: Smoke test
+        shell: bash
+        run: dist-bin/cheap-search${{ matrix.ext }} --help
+
+      - name: Stage asset
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp "dist-bin/cheap-search${{ matrix.ext }}" "artifacts/${{ matrix.target }}${{ matrix.ext }}"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: ${{ matrix.target }}
+          path: artifacts/${{ matrix.target }}${{ matrix.ext }}
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: [authorize, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Resolve tag
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --generate-notes \
+              --target "${GITHUB_SHA}"
+          fi
+          gh release upload "$TAG" artifacts/* --clobber
