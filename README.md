@@ -1,18 +1,21 @@
 # cheap-search
 
-Lightweight, agent-facing CLI for provider-specific search. Wraps two backends behind one binary and ships two Claude Skills that teach a coding agent *when* and *how* to call it.
+Cheaper alternatives to Claude's built-in WebSearch, packaged as one CLI plus two Claude Skills.
 
 ```
 cheap-search
-├── grok-search   # xAI / Grok — web + X (Twitter)
-└── codex-search  # local Codex CLI passthrough
+├── grok-search   # xAI / Grok — web + X (Twitter), ~$0.005/call
+└── codex-search  # local Codex CLI — billed to your codex subscription
 ```
-
-The agent picks the provider explicitly. There is no automatic routing.
 
 ## Why
 
-Built-in agent search (Claude WebSearch, etc.) is fine for generic lookups. `cheap-search` exists for the cases where you specifically want **Grok's view of the web**, **Grok's read of X/Twitter**, or **Codex's grounding** — and you want the agent to invoke the provider you asked for, not pick one for you.
+Claude's built-in WebSearch bills against the conversation's token budget. For an agent that searches often, that gets expensive fast. Both providers here offload that cost:
+
+- **Grok** charges ~$0.005 per tool call to xAI directly. It's also the only path to **X/Twitter content** — Claude's WebSearch can't read X.
+- **Codex** bills against your codex subscription/credits, not Claude tokens. Slower (~30s+) but pulls a different model's view of the web.
+
+Default posture for both skills is **"prefer this over Claude's WebSearch"**. If you'd rather use cheap-search only when you explicitly name the provider, each skill ships with a one-line edit in its `SKILL.md` to flip to trigger-only mode.
 
 ## Install
 
@@ -87,10 +90,14 @@ cheap-search codex "<query>" -- --skip-git-repo-check -m gpt-5-codex
 
 Two skills under [`skills/`](skills/):
 
-- [`grok-search`](skills/grok-search/SKILL.md) — fires only when the user explicitly names Grok / xAI / X / Twitter.
-- [`codex-search`](skills/codex-search/SKILL.md) — fires only when the user explicitly names Codex.
+- [`grok-search`](skills/grok-search/SKILL.md) — prefers Grok over Claude WebSearch by default; always fires for X/Twitter content. Flip to trigger-only mode by editing one line.
+- [`codex-search`](skills/codex-search/SKILL.md) — prefers Codex over Claude WebSearch when latency permits. Flip to trigger-only mode by editing one line.
 
 Each skill bundles `scripts/ensure-cheap-search.sh` which resolves the bundled binary, falls back to `uvx --from cheap-search cheap-search`, and only complains if neither is available.
+
+### Switching to trigger-only mode
+
+If you'd rather keep Claude WebSearch as the default and only invoke cheap-search when you explicitly ask for it, open the skill's `SKILL.md` and replace the `description:` line at the top with the "trigger-only" alternative shown in that file's "Switch to trigger-only mode" section. The `description:` line is what Claude's auto-selector matches against; nothing else needs to change.
 
 ## Exit codes
 
